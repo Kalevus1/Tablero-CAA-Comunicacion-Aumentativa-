@@ -1,0 +1,36 @@
+# Entornos de Python
+.venv/
+.venv_face/
+venv/
+env/
+
+# Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Empaquetado (PyInstaller)
+build/
+dist/
+*.spec
+
+# Paquetes para Release (no van en el repo)
+_ENTREGA_GITHUB/
+
+# PRIVACIDAD: tu voz (personal, NO subir al repo)
+voz_cache/
+voz_cache_live/
+voz_referencia*.wav
+entrenar_voz/          # tus grabaciones de voz (privadas)
+# Clips de voz de la web (TU voz). Descoméntalo del .gitignore SOLO si quieres que
+# la web (GitHub Pages, público) hable con tu voz — publicarás tu voz.
+web/voz/
+
+# Archivos de prueba / demos generados
+demo_*.wav
+salida_*.wav
+test_fix*.py
+
+# Sistema
+Thumbs.db
+.DS_Store
