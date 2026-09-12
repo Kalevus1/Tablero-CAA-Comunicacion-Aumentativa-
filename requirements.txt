@@ -1,0 +1,6 @@
+# Versión portátil (.exe / escritorio con tus 200 clips de voz + voz del sistema):
+PySide6
+
+# La voz en vivo (Tablero-mi-voz.bat) que dice cualquier cosa necesita, en un entorno con GPU:
+#   torch (CUDA)  ·  chatterbox-tts  ·  openai-whisper  ·  soundfile  ·  sounddevice
+# (ver ../Voz-Lab). No hacen falta para el .exe ni la web.
