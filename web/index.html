@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Mi Tablero — Comunicación</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mi Tablero">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    :root {
+      --bg: #f4f6fb; --panel: #ffffff; --ink: #1f2937; --muted: #6b7280; --border: #e5e7eb;
+      --accent: #4f46e5; --accent-d: #4338ca;
+      /* colores por categoría (clave tipo Fitzgerald, adaptada) */
+      --c-frec: #fde68a; --c-comida: #fdba74; --c-emoc: #93c5fd;
+      --c-accion: #86efac; --c-personas: #fcd34d; --c-lugares: #f9a8d4; --c-cortesia: #d8b4fe;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg);
+      color: var(--ink); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ---------- barra de frase ---------- */
+    .topbar { background: var(--panel); border-bottom: 2px solid var(--border); padding: 10px 14px;
+      position: sticky; top: 0; z-index: 20; }
+    .sentence-row { display: flex; gap: 10px; align-items: stretch; }
+    .sentence { flex: 1; min-height: 76px; background: #f9fafb; border: 2px solid var(--border);
+      border-radius: 14px; padding: 8px 10px; display: flex; gap: 8px; align-items: center;
+      flex-wrap: wrap; overflow-x: auto; cursor: pointer; }
+    .sentence:empty::before { content: "Toca los dibujos para hablar…"; color: var(--muted); font-size: 1.1rem; }
+    .chip { display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #fff; border: 2px solid var(--border); border-radius: 12px; padding: 4px 8px; min-width: 62px; }
+    .chip .emo { font-size: 1.9rem; line-height: 1; }
+    .chip .txt { font-size: 0.72rem; margin-top: 2px; color: var(--ink); font-weight: 600; }
+    .top-actions { display: flex; gap: 8px; }
+    .abtn { border: none; border-radius: 14px; padding: 0 18px; font-size: 1rem; font-weight: 700;
+      cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 84px; color: #fff; }
+    .abtn .i { font-size: 1.6rem; }
+    .abtn.speak { background: #16a34a; } .abtn.speak:hover { background: #15803d; }
+    .abtn.back { background: #f59e0b; } .abtn.back:hover { background: #d97706; }
+    .abtn.clear { background: #ef4444; } .abtn.clear:hover { background: #dc2626; }
+
+    /* ---------- categorías ---------- */
+    .cats { display: flex; gap: 8px; overflow-x: auto; padding: 10px 14px; background: var(--panel);
+      border-bottom: 2px solid var(--border); }
+    .cat { border: 2px solid transparent; border-radius: 999px; padding: 8px 16px; font-size: 0.95rem;
+      font-weight: 700; cursor: pointer; white-space: nowrap; color: var(--ink); }
+    .cat.active { border-color: var(--ink); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+
+    /* ---------- rejilla ---------- */
+    .grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+      gap: 12px; padding: 16px; align-content: start; }
+    .tile { position: relative; aspect-ratio: 1 / 1; border: 3px solid rgba(0,0,0,0.08); border-radius: 18px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+      cursor: pointer; user-select: none; transition: transform .06s; padding: 6px; }
+    .tile:active { transform: scale(0.95); }
+    .tile .emo { font-size: clamp(2.2rem, 6vw, 3.2rem); line-height: 1; }
+    .tile .txt { font-size: 0.95rem; font-weight: 700; text-align: center; }
+    .tile .del { position: absolute; top: -8px; right: -8px; width: 26px; height: 26px; border-radius: 50%;
+      background: #ef4444; color: #fff; border: 2px solid #fff; font-weight: 900; cursor: pointer;
+      display: none; align-items: center; justify-content: center; font-size: 15px; }
+    body.editing .tile .del { display: flex; }
+    .tile.add { border-style: dashed; color: var(--muted); background: #fff; }
+    .tile.add .emo { font-size: 2.6rem; }
+
+    /* ---------- barra inferior ---------- */
+    .bottom { background: var(--panel); border-top: 2px solid var(--border); padding: 10px 14px;
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .toggle { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+    .switch { width: 46px; height: 26px; border-radius: 999px; background: var(--border); position: relative; transition: background .15s; }
+    .switch.on { background: var(--accent); }
+    .switch .k { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .15s; }
+    .switch.on .k { left: 23px; }
+    .btn { border: 2px solid var(--border); background: #fff; border-radius: 12px; padding: 9px 14px;
+      font-weight: 700; cursor: pointer; font-size: 0.9rem; }
+    .btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .grow { flex: 1; }
+    .sign { color: var(--muted); font-size: 0.8rem; }
+
+    /* ---------- modal añadir ---------- */
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: center;
+      justify-content: center; z-index: 40; padding: 16px; }
+    .modal-bg.show { display: flex; }
+    .modal { background: #fff; border-radius: 18px; padding: 22px; width: 100%; max-width: 420px; }
+    .modal h3 { margin-bottom: 14px; }
+    .modal label { display: block; font-weight: 700; margin: 10px 0 4px; font-size: 0.9rem; }
+    .modal input { width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 10px; font-size: 1rem; }
+    .emopick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; max-height: 140px; overflow-y: auto; }
+    .emopick span { font-size: 1.7rem; cursor: pointer; padding: 4px; border-radius: 8px; }
+    .emopick span.sel { background: var(--c-emoc); }
+    .modal-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .modal-actions .btn { flex: 1; }
+    .btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .warn { background: #fef9c3; border: 1px solid #fde047; color: #854d0e; border-radius: 10px;
+      padding: 8px 12px; font-size: 0.82rem; margin: 8px 14px 0; display: none; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="sentence-row">
+      <div class="sentence" id="sentence" title="Toca aquí para repetir la frase"></div>
+      <div class="top-actions">
+        <button class="abtn speak" id="speak"><span class="i">🔊</span>Hablar</button>
+        <button class="abtn back" id="back"><span class="i">⌫</span>Borrar</button>
+        <button class="abtn clear" id="clear"><span class="i">🗑️</span>Vaciar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="warn" id="voicewarn"></div>
+  <div class="cats" id="cats"></div>
+  <div class="grid" id="grid"></div>
+
+  <div class="bottom">
+    <div class="toggle" id="t-say"><span>Decir cada palabra al tocar</span><span class="switch on" id="sw-say"><span class="k"></span></span></div>
+    <div class="grow"></div>
+    <button class="btn" id="infobtn">ℹ️ Info</button>
+    <button class="btn" id="editbtn">✏️ Editar tablero</button>
+    <span class="sign">Mi Tablero · por <strong>KALEVI LATVA AIJO ALEGRIA</strong></span>
+  </div>
+
+  <div class="modal-bg" id="infomodal">
+    <div class="modal" style="max-width:520px">
+      <h3>ℹ️ Acerca de Mi Tablero</h3>
+      <p style="font-size:.9rem;line-height:1.5;color:var(--ink)">
+        Tablero de <b>comunicación por pictogramas</b>: toca los dibujos, arma una frase y pulsa
+        <b>🔊 Hablar</b> para decirla en voz alta.
+      </p>
+      <p style="font-size:.88rem;line-height:1.5;color:var(--muted);margin-top:8px">
+        <b>Qué puede hacer:</b> tiene <b>200 palabras</b> (core del idioma + animales, comida, lugares,
+        acciones…). En esta versión web, esas 200 suenan con <b>tu voz grabada</b>; las palabras que
+        añadas usan la <b>voz del sistema</b> del dispositivo.
+      </p>
+      <p style="font-size:.88rem;line-height:1.5;color:var(--muted);margin-top:8px">
+        <b>Limitaciones:</b> el móvil/navegador <b>no puede clonar voz</b> (eso necesita una GPU). La
+        versión de <b>PC con GPU NVIDIA</b> sí dice <b>cualquier frase</b> en tu voz y permite grabar la
+        voz de una persona de confianza.
+      </p>
+      <div class="modal-actions" style="margin-top:16px">
+        <button class="btn primary" id="info-ok" style="width:100%">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="modal">
+    <div class="modal">
+      <h3>➕ Añadir botón</h3>
+      <label>Palabra o frase</label>
+      <input id="m-word" type="text" placeholder="Ej: quiero jugar" maxlength="24">
+      <label>Elige un dibujo (emoji)</label>
+      <div class="emopick" id="emopick"></div>
+      <div class="modal-actions">
+        <button class="btn" id="m-cancel">Cancelar</button>
+        <button class="btn primary" id="m-ok">Añadir</button>
+      </div>
+    </div>
+  </div>
+
+<script src="vocabulario.js"></script>
+<script src="voz/clips.js"></script>
+<script>
+/* ================= Vocabulario base ================= */
+let BASE = {};   // se carga desde vocabulario.js (window.VOCAB, 200 palabras)
+function cargarVocabulario() {
+  const d = window.VOCAB || {};
+  const out = {};
+  for (const k in d) out[k] = { nombre: d[k][0], color: d[k][1], items: d[k][2] };
+  return out;
+}
+let clips = {};   // palabra -> archivo de audio (TU voz), desde voz/clips.js (window.CLIPS)
+function cargarClips() {
+  clips = (window.CLIPS && window.CLIPS.words) ? window.CLIPS.words : (window.CLIPS || {});
+}
+const EMOJIS = ["⭐","😀","😢","😠","😴","🤕","😨","🥰","😋","🙂","🙁","👍","👎","🙏","🤟","👋","✋","🤗","👀","👂","🙋","👉",
+  "💧","🍽️","🍞","🥛","🍎","🍌","🍚","🍪","🍫","🧃","🍕","🍔","🍟","🥤","🍇","🥕",
+  "🎮","📖","🎵","⚽","🚗","🚽","🛁","🚪","🚶","🛌","✏️","🎨","📺",
+  "🏠","🏫","🏥","🏪","🌳","🛏️","🍳","🛋️","🌙","☀️","⏰","🌧️",
+  "👩","👨","👵","👴","👶","🧒","👪","👨‍⚕️","👩‍🏫","🧑‍🤝‍🧑","🐶","🐱",
+  "❤️","➕","🔚","🆘","✅","❌","❓","🔁","⏭️","💊","🩹","😷"];
+
+/* ================= Estado + persistencia ================= */
+const LS = "tableroCAA.v2";
+let board = {};
+let currentCat = "frecuentes";
+let sentence = [];   // [{emo,txt}]
+let editing = false;
+let sayOnTap = true;
+
+function load() {
+  try {
+    const raw = localStorage.getItem(LS);
+    if (raw) { const d = JSON.parse(raw); if (d.board) board = d.board; if (typeof d.sayOnTap === "boolean") sayOnTap = d.sayOnTap; }
+  } catch (e) {}
+}
+function save() { try { localStorage.setItem(LS, JSON.stringify({ board, sayOnTap })); } catch (e) {} }
+
+/* ================= Voz (TTS) ================= */
+let voice = null;
+function initVoices() {
+  if (!("speechSynthesis" in window)) { showWarn("Este navegador no puede hablar. Prueba con Chrome o Edge."); return; }
+  const pick = () => {
+    const vs = speechSynthesis.getVoices();
+    voice = vs.find(v => /^es/i.test(v.lang)) || vs.find(v => /spanish|español/i.test(v.name)) || null;
+    if (!voice && vs.length && Object.keys(clips).length === 0) showWarn("No hay voz en español instalada; se usará otra voz. Puedes añadir una voz en español en la configuración de tu sistema para mejor pronunciación.");
+  };
+  pick();
+  speechSynthesis.onvoiceschanged = pick;
+}
+function speakTTS(text) {
+  if (!text || !("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "es-ES"; u.rate = 0.95; u.pitch = 1;
+  if (voice) u.voice = voice;
+  speechSynthesis.speak(u);
+}
+let _audio = null;
+function _playClip(txt) {
+  try {
+    if (_audio) { _audio.pause(); }
+    _audio = new Audio("voz/" + clips[txt]);
+    _audio.play().catch(() => speakTTS(txt));
+    return _audio;
+  } catch (e) { speakTTS(txt); return null; }
+}
+/* Una palabra: TU voz si hay clip; si no, voz del sistema */
+function decirPalabra(txt) {
+  if (clips[txt]) _playClip(txt); else speakTTS(txt);
+}
+/* Frase entera: si TODAS las palabras tienen clip, reproduce tu voz en secuencia; si no, TTS */
+function decirFrase(words) {
+  if (!words.length) return;
+  if (words.every(w => clips[w])) {
+    let i = 0;
+    const next = () => {
+      if (i >= words.length) return;
+      const a = new Audio("voz/" + clips[words[i]]);
+      a.onended = () => { i++; next(); };
+      a.onerror = () => { i++; next(); };
+      a.play().catch(() => { i++; next(); });
+    };
+    next();
+  } else {
+    speakTTS(words.join(" "));
+  }
+}
+function showWarn(msg) { const w = document.getElementById("voicewarn"); w.textContent = "🔊 " + msg; w.style.display = "block"; }
+
+/* ================= Render ================= */
+const $ = id => document.getElementById(id);
+function cssColor(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function renderCats() {
+  $("cats").innerHTML = Object.keys(board).map(key =>
+    `<button class="cat ${key === currentCat ? "active" : ""}" data-cat="${key}"
+       style="background:${board[key].color}">${board[key].nombre}</button>`).join("");
+}
+function renderGrid() {
+  const cat = board[currentCat]; if (!cat) return;
+  const bg = cat.color;
+  let html = cat.items.map((it, i) =>
+    `<div class="tile" data-i="${i}" style="background:${bg}">
+       <div class="del" data-del="${i}">✕</div>
+       <div class="emo">${it[0]}</div><div class="txt">${it[1]}</div>
+     </div>`).join("");
+  html += `<div class="tile add" id="addtile"><div class="emo">➕</div><div class="txt">Añadir</div></div>`;
+  $("grid").innerHTML = html;
+  $("addtile").style.display = editing ? "flex" : "none";
+}
+function renderSentence() {
+  $("sentence").innerHTML = sentence.map(s => `<div class="chip"><span class="emo">${s.emo}</span><span class="txt">${s.txt}</span></div>`).join("");
+}
+
+/* ================= Interacción ================= */
+function addWord(emo, txt) { sentence.push({ emo, txt }); renderSentence(); if (sayOnTap) decirPalabra(txt); }
+
+$("grid").addEventListener("click", (e) => {
+  const del = e.target.closest(".del");
+  if (del) { board[currentCat].items.splice(parseInt(del.dataset.del, 10), 1); save(); renderGrid(); return; }
+  if (e.target.closest("#addtile")) { openModal(); return; }
+  const tile = e.target.closest(".tile"); if (!tile || tile.classList.contains("add")) return;
+  const it = board[currentCat].items[parseInt(tile.dataset.i, 10)];
+  if (it) addWord(it[0], it[1]);
+});
+$("cats").addEventListener("click", (e) => {
+  const c = e.target.closest(".cat"); if (!c) return;
+  currentCat = c.dataset.cat; renderCats(); renderGrid();
+});
+$("speak").addEventListener("click", () => decirFrase(sentence.map(s => s.txt)));
+$("sentence").addEventListener("click", () => decirFrase(sentence.map(s => s.txt)));
+$("back").addEventListener("click", () => { sentence.pop(); renderSentence(); });
+$("clear").addEventListener("click", () => { sentence = []; renderSentence(); });
+
+$("editbtn").addEventListener("click", () => {
+  editing = !editing;
+  document.body.classList.toggle("editing", editing);
+  $("editbtn").classList.toggle("active", editing);
+  $("editbtn").textContent = editing ? "✅ Listo" : "✏️ Editar tablero";
+  renderGrid();
+});
+$("t-say").addEventListener("click", () => {
+  sayOnTap = !sayOnTap; $("sw-say").classList.toggle("on", sayOnTap); save();
+});
+$("infobtn").addEventListener("click", () => $("infomodal").classList.add("show"));
+$("info-ok").addEventListener("click", () => $("infomodal").classList.remove("show"));
+
+/* ---- modal añadir ---- */
+let pickedEmoji = "⭐";
+function openModal() {
+  pickedEmoji = "⭐"; $("m-word").value = "";
+  $("emopick").innerHTML = EMOJIS.map((em, i) => `<span data-em="${em}" class="${i === 0 ? "sel" : ""}">${em}</span>`).join("");
+  pickedEmoji = EMOJIS[0];
+  $("modal").classList.add("show"); $("m-word").focus();
+}
+$("emopick").addEventListener("click", (e) => {
+  if (e.target.dataset.em) {
+    pickedEmoji = e.target.dataset.em;
+    [...$("emopick").children].forEach(s => s.classList.toggle("sel", s === e.target));
+  }
+});
+$("m-cancel").addEventListener("click", () => $("modal").classList.remove("show"));
+$("m-ok").addEventListener("click", () => {
+  const w = $("m-word").value.trim(); if (!w) { $("m-word").focus(); return; }
+  board[currentCat].items.push([pickedEmoji, w]); save();
+  $("modal").classList.remove("show"); renderGrid();
+});
+
+/* ================= Inicio ================= */
+function init() {
+  BASE = cargarVocabulario();
+  cargarClips();
+  board = JSON.parse(JSON.stringify(BASE));
+  currentCat = Object.keys(board)[0] || "frecuentes";
+  load();
+  $("sw-say").classList.toggle("on", sayOnTap);
+  initVoices();
+  if (Object.keys(clips).length) {
+    const w = document.getElementById("voicewarn");
+    w.textContent = "🎙️ Usando tu voz grabada (" + Object.keys(clips).length + " palabras).";
+    w.style.display = "block";
+    w.style.background = "#dcfce7"; w.style.color = "#166534"; w.style.borderColor = "#86efac";
+  }
+  renderCats(); renderGrid(); renderSentence();
+}
+init();
+</script>
+<script>
+/* PWA: registrar service worker para instalar en el teléfono y funcionar sin internet */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
